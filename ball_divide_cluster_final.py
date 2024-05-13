@@ -88,6 +88,31 @@ class GB_senior():
                 max_s = max(GB_senior.S[g1,g2],max_s)
         return max_s
 
+def get_avg_n_div_maxr(gb_list):
+    '''
+    用 n / maxr 当做判定噪声球的条件，用来过滤噪声粒球
+    Args:
+        gb_list:
+
+    Returns:
+    '''
+    avg_n_div_maxr = sum([len(x) / get_radius(x)  for x in gb_list]) / len(gb_list)
+    return avg_n_div_maxr
+
+def get_radius(gb):
+    '''
+    返回粒球的最大半径
+    Args:
+        gb:
+    Returns:
+    '''
+    center = gb.mean(0)
+    diff_mat = center - gb
+    sq_diff_mat = diff_mat ** 2
+    sq_distances = sq_diff_mat.sum(axis=1)
+    distances = sq_distances ** 0.5
+    radius = max(distances)
+    return radius
 
 def get_S_matrix_drr_xia(gb_list):
     '''
@@ -129,7 +154,6 @@ def get_S_matrix_drr_xia(gb_list):
 def divide_ball_GBC_y(X,K,detaile = False):
     '''
     先根据GBC中的粒球划分生成粒球，然后按照粒球的最近邻优先的距离度量连接粒球。
-    C_y数据集中noise_index为2，其余数据集为1
     Args:
         X: 数据
         K: 聚类簇数
@@ -140,14 +164,33 @@ def divide_ball_GBC_y(X,K,detaile = False):
     X_scaler = scaler.fit_transform(X)
     detaile_list = []
 
-    minimum_ball = 2 # 避免孤立点影响聚类效果
-    gb_list = get_gb_division_x(X,False) # 得到粒球划分
+    minimum_ball = 2  # 一般为2，重叠时调大
+    percent_avg = 0.2  # 越大忽略的越多
+
+    start_time = datetime.datetime.now()
+    gb_list = get_gb_division_x(X, False)
+    end_time = datetime.datetime.now()
+    consume_time = (end_time - start_time)
+    print('split consume time is-----', consume_time)
+
     gb_list = [x for x in gb_list if len(x) != 0]
-    print("gb_list len:",len(gb_list))
-    noise_list = [x for x in gb_list if x.shape[0] < minimum_ball]
+    print("gb_list len:", len(gb_list))
+    # 根据粒球内的样本点数去噪声
+    noise_list1 = [x for x in gb_list if x.shape[0] < minimum_ball]
+    # 去噪过后的 gb_list
     gb_list = [x for x in gb_list if x.shape[0] >= minimum_ball]
 
-    noise_index = 1 # 所有粒球都合并的次数
+    avg_n_div_maxr = get_avg_n_div_maxr(gb_list=gb_list)
+
+    # 根据粒球的稀疏度去噪声
+    noise_list2 = [x for x in gb_list if len(x) / get_radius(x) < percent_avg * avg_n_div_maxr]
+    # 去噪过后的 gb_list
+    gb_list = [x for x in gb_list if len(x) / get_radius(x) >= percent_avg * avg_n_div_maxr]
+    noise_list = noise_list1 + noise_list2
+    # visualize(np.vstack(gb_list), [0] * len(np.vstack(gb_list)), 'deoverlap..')
+
+    noise_index = 1
+
     S = get_S_matrix_drr_xia(gb_list) # 粒球的相似度矩阵
     GB_senior.S = S
     # 将每个粒球都映射成一个索引

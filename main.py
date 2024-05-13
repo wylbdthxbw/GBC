@@ -20,7 +20,7 @@ def write_csv(filename, lst):
         ['Alice', 25, 'New York'],
         ['Bob', 30, 'San Francisco'],
         ['Charlie', 22, 'Los Angeles']
-        ]       
+        ]
         '''
         writer.writerows(lst)
 
@@ -45,6 +45,7 @@ def main():
     np.random.seed(0)
     alg_name = 'GBC'
     name_list = os.listdir('./GBC15_label')
+    # name_list = [x for x in name_list if 'C' in x]
     column_wirte_list=[]
     for data_name in name_list:
         data_name = data_name[:-4]
@@ -55,21 +56,28 @@ def main():
         numpy_array = df.values
         X = numpy_array[:,1:]
         y = numpy_array[:,0]
-        n_cluster = len(set(y))
+        if 'noise' not in data_name:
+            n_cluster = len(set(y))
+        else:
+            n_cluster = len(set(y)) - 1
+            L = len([x for x in y if x != -1])
 
         st = time.time()
         y_ball = divide_ball_GBC_y(X, n_cluster, False)
-        acc, nmi, ari, f1 = evaluation(y, y_ball)
+        if 'noise' not in data_name:
+            acc, nmi, ari, f1 = evaluation(y, y_ball)
+        else:
+            acc, nmi, ari, f1 = evaluation(y[:L], y_ball[:L])
         et = time.time()
         ct = et - st
-        save_path = './fig_{}/'.format(alg_name)
+        save_path = './fig_{}_59/'.format(alg_name)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         column_wirte_list.append([str(round(acc, 3))])
         column_wirte_list.append([str(round(nmi, 3))])
         column_wirte_list.append([str(round(ct, 3))])
         print("  acc nmi time:",column_wirte_list)
-        write_csv('./{}_column.csv'.format(alg_name), column_wirte_list)
+        # write_csv('./{}_column.csv'.format(alg_name), column_wirte_list)
         column_wirte_list = []
         visualize_save(save_path,X, np.array(y_ball), 'res {}'.format(data_name))
         print("---------------")
